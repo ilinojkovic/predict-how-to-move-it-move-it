@@ -83,7 +83,8 @@ def main(config):
 
         # TODO choose the optimizer you desire here and define `train_op. The loss should be accessible through rnn_model.loss
         params = tf.trainable_variables()
-        train_op = None
+        optimizer = tf.train.AdamOptimizer()
+        train_op = optimizer.apply_gradients()
 
     # create a graph for validation
     with tf.name_scope('validation'):
