@@ -17,7 +17,7 @@ class RNNModel(object):
         self.config = config
         self.input_ = placeholders['input_pl']
         self.target = placeholders['target_pl']
-        self.mask = placeholders['mask_pl']
+        self.mask = tf.expand_dims(placeholders['mask_pl'], axis=-1)
         self.seq_lengths = placeholders['seq_lengths_pl']
         self.mode = mode
         self.is_training = self.mode == 'training'
@@ -89,7 +89,7 @@ class RNNModel(object):
                 # `self.target`. Hint 1: you will want to use the provided `self.mask` to make sure that padded values
                 # do not influence the loss. Hint 2: L2 loss is probably a good starting point ...
 
-                self.loss = tf.losses.mean_squared_error(labels=self.target, predictions=self.prediction)
+                self.loss = tf.losses.mean_squared_error(labels=self.target, predictions=self.prediction, weights=self.mask)
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
 
     def count_parameters(self):
@@ -111,7 +111,7 @@ class RNNModel(object):
         :return: A feed dict that can be passed to a session.run call
         """
         input_padded, target_padded = batch.get_padded_data()
-
+        # print('Mask shape: ', batch.mask.shape)
         feed_dict = {self.input_: input_padded,
                      self.target: target_padded,
                      self.seq_lengths: batch.seq_lengths,
