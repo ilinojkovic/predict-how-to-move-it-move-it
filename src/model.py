@@ -62,7 +62,6 @@ class RNNModel(object):
             self.final_state = None
             self.prediction = None
 
-
     def build_loss(self):
         """
         Builds the loss function.

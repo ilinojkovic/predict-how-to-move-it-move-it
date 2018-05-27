@@ -241,10 +241,13 @@ class MotionDataset(Dataset, Feeder):
         all_ids = []
         all_action_labels = []
 
+        print('data shape: ', data.shape)
+
         for d in data:
             angles = d['angles']
             angles_s = _split(angles)
             all_angles.extend(angles_s)
+
             all_ids.extend([d['id']]*len(angles_s))
             all_action_labels.extend([d['action_label']]*len(angles_s))
 
