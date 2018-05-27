@@ -27,6 +27,8 @@ class RNNModel(object):
         self.input_dim = config['input_dim']
         self.output_dim = config['output_dim']
         self.summary_collection = 'training_summaries' if mode == 'training' else 'validation_summaries'
+        self.hidden_state_size = config['hidden_state_size']
+        self.num_layers = config['num_layers']
 
     def build_graph(self):
         self.build_model()
@@ -58,9 +60,22 @@ class RNNModel(object):
         #      - `self.prediction`: the actual output of the model in shape `(batch_size, self.max_seq_length, output_dim)`
 
         with tf.variable_scope('rnn_model', reuse=self.reuse):
-            self.initial_state = None
-            self.final_state = None
-            self.prediction = None
+
+            cells = [tf.contrib.rnn.GRUCell(num_units=self.hidden_state_size) for _ in range(self.num_layers)]
+
+            # we stack the cells together and create one big RNN cell
+            cell = tf.contrib.rnn.MultiRNNCell(cells)
+
+            self.initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
+
+            outputs, self.final_state = tf.nn.dynamic_rnn(cell=cell, initial_state=self.initial_state,
+                                                          inputs=self.input_, sequence_length=self.seq_lengths)
+
+            local_max_seq_length = tf.shape(self.input_)[1]
+            outputs_flat = tf.reshape(outputs, [-1, self.hidden_state_size])
+            down_project = tf.layers.dense(outputs_flat, units=self.output_dim)
+            self.prediction = tf.reshape(down_project, [self.batch_size, local_max_seq_length, self.output_dim])
+
 
     def build_loss(self):
         """
@@ -74,13 +89,14 @@ class RNNModel(object):
                 # `self.target`. Hint 1: you will want to use the provided `self.mask` to make sure that padded values
                 # do not influence the loss. Hint 2: L2 loss is probably a good starting point ...
 
-                self.loss = None
+                self.loss = tf.losses.mean_squared_error(labels=self.target, predictions=self.prediction)
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
 
     def count_parameters(self):
         """
         Counts the number of trainable parameters in this model
         """
+
         self.n_parameters = 0
         for v in tf.trainable_variables():
             params = 1

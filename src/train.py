@@ -83,8 +83,14 @@ def main(config):
 
         # TODO choose the optimizer you desire here and define `train_op. The loss should be accessible through rnn_model.loss
         params = tf.trainable_variables()
-        optimizer = tf.train.AdamOptimizer()
-        train_op = optimizer.apply_gradients()
+        optimizer = tf.train.AdamOptimizer(config['learning_rate'])
+        gradients = tf.gradients(rnn_model.loss, params)
+
+        # clip the gradients to counter explosion
+        clipped_gradients, _ = tf.clip_by_global_norm(gradients, config['gradient_clip'])
+
+        # backprop
+        train_op = optimizer.apply_gradients(zip(clipped_gradients, params), global_step=global_step)
 
     # create a graph for validation
     with tf.name_scope('validation'):
