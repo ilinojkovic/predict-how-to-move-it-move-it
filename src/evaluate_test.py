@@ -49,6 +49,8 @@ def main(config):
             feed_dict = {placeholders['input_pl']: input_,
                          placeholders['seq_lengths_pl']: batch.seq_lengths}
 
+            print(batch.seq_lengths.shape)
+
             [state] = sess.run(fetch, feed_dict)
 
             # now get the prediction by predicting one pose at a time and feeding this pose back into the model to
@@ -64,8 +66,8 @@ def main(config):
                 #      iteration
 
                 fetch = [rnn_model.final_state, rnn_model.prediction]
-                feed_dict = {placeholders['input_pl']: [[next_pose]],
-                             placeholders['seq_lengths_pl']: [1],
+                feed_dict = {rnn_model.input_: next_pose,
+                             placeholders['seq_lengths_pl']: [1]*batch.seq_lengths.shape[0],
                              rnn_model.initial_state: state}
 
                 [state, predicted_pose] = sess.run(fetch, feed_dict)
