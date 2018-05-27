@@ -63,8 +63,10 @@ def main(config):
                 #   3) fetch both the final state and prediction of the RNN model that are then re-used in the next
                 #      iteration
 
-                fetch = None
-                feed_dict = None
+                fetch = [rnn_model.final_state, rnn_model.prediction]
+                feed_dict = {placeholders['input_pl']: [[next_pose]],
+                             placeholders['seq_lengths_pl']: [1],
+                             rnn_model.initial_state: state}
 
                 [state, predicted_pose] = sess.run(fetch, feed_dict)
 
