@@ -7,7 +7,7 @@ train_config['batch_size'] = 64  # TODO specify a batch size
 train_config['max_seq_length'] = 75  # TODO specify for how many time steps you want to unroll the RNN
 
 train_config['hidden_state_size'] = 1024  # TODO specify the hidden state size
-train_config['num_layers'] = 1  # TODO Specify the number of layers
+train_config['num_layers'] = 2  # TODO Specify the number of layers
 
 train_config['learning_rate'] = 0.005  # TODO specify a learning rate (this is currently just a dummy value)
 train_config['n_epochs'] = 10  # TODO for how many epochs to train (this is currently just a dummy value)

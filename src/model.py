@@ -16,9 +16,13 @@ class RNNModel(object):
         assert mode in ['training', 'validation', 'inference']
         self.config = config
         self.input_ = placeholders['input_pl']
+        self.encoder_input_ = self.input_[:, :50, :]
+        self.decoder_input_ = self.input_[:, 50:, :]
         self.target = placeholders['target_pl']
         self.mask = placeholders['mask_pl']
         self.seq_lengths = placeholders['seq_lengths_pl']
+        self.encoder_seq_lengths = [50] * tf.shape(self.seq_lengths)[0]
+        self.decoder_seq_lengths = [25] * tf.shape(self.seq_lengths)[0]
         self.mode = mode
         self.is_training = self.mode == 'training'
         self.reuse = self.mode == 'validation'
@@ -61,19 +65,62 @@ class RNNModel(object):
 
         with tf.variable_scope('rnn_model', reuse=self.reuse):
 
-            cells = [tf.contrib.rnn.GRUCell(num_units=self.hidden_state_size) for _ in range(self.num_layers)]
+            # cells = [tf.contrib.rnn.GRUCell(num_units=self.hidden_state_size) for _ in range(self.num_layers)]
+            #
+            # # we stack the cells together and create one big RNN cell
+            # cell = tf.contrib.rnn.MultiRNNCell(cells)
+            #
+            # self.initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
+            #
+            # outputs, self.final_state = tf.nn.dynamic_rnn(cell=cell, initial_state=self.initial_state,
+            #                                               inputs=self.input_, sequence_length=self.seq_lengths)
+            #
+            # local_max_seq_length = tf.shape(self.input_)[1]
+
+            # outputs_flat = tf.reshape(outputs, [-1, self.hidden_state_size])
+            # down_project = tf.layers.dense(outputs_flat, units=self.output_dim)
+            # self.prediction = tf.reshape(down_project, [self.batch_size, local_max_seq_length, self.output_dim])
+
+            # seq2seq
+            encoder_cells = [tf.contrib.rnn.GRUCell(num_units=self.hidden_state_size) for _ in range(self.num_layers)]
 
             # we stack the cells together and create one big RNN cell
-            cell = tf.contrib.rnn.MultiRNNCell(cells)
+            encoder_cell = tf.contrib.rnn.MultiRNNCell(encoder_cells)
 
-            self.initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
+            # Build RNN cell
+            # encoder_cell = tf.nn.rnn_cell.BasicLSTMCell(self.hidden_state_size)
 
-            outputs, self.final_state = tf.nn.dynamic_rnn(cell=cell, initial_state=self.initial_state,
-                                                          inputs=self.input_, sequence_length=self.seq_lengths)
+            # Run Dynamic RNN
+            #   encoder_outputs: [max_time, batch_size, num_units]
+            #   encoder_state: [batch_size, num_units]
+            self.initial_state = encoder_cell.zero_state(self.batch_size, dtype=tf.float32)
 
-            local_max_seq_length = tf.shape(self.input_)[1]
-            outputs_flat = tf.reshape(outputs, [-1, self.hidden_state_size])
+            encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
+                encoder_cell, self.encoder_input_, initial_state=self.initial_state,
+                sequence_length=self.encoder_seq_lengths, time_major=False)
+
+            # Build RNN cell
+            decoder_cells = [tf.contrib.rnn.GRUCell(num_units=self.hidden_state_size) for _ in range(self.num_layers)]
+
+            # we stack the cells together and create one big RNN cell
+            decoder_cell = tf.contrib.rnn.MultiRNNCell(encoder_cells)
+
+            # Helper
+            helper = tf.contrib.seq2seq.TrainingHelper(
+                self.decoder_input_, self.decoder_seq_lengths, time_major=False)
+            # Decoder
+            decoder = tf.contrib.seq2seq.BasicDecoder(
+                decoder_cell, helper, encoder_state)
+
+            # Dynamic decoding
+            decoder_outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder, ...)
+            logits = decoder_outputs.rnn_output
+
+            print(logits.shape)
+
+            outputs_flat = tf.reshape(logits, [-1, self.hidden_state_size])
             down_project = tf.layers.dense(outputs_flat, units=self.output_dim)
+            local_max_seq_length = tf.shape(self.input_)[1]
             self.prediction = tf.reshape(down_project, [self.batch_size, local_max_seq_length, self.output_dim])
 
 
@@ -113,6 +160,7 @@ class RNNModel(object):
         """
         input_padded, target_padded = batch.get_padded_data()
         # print('Mask shape: ', batch.mask.shape)
+        print('SEQ LENGTHS: ', batch.seq_lengths)
         feed_dict = {self.input_: input_padded,
                      self.target: target_padded,
                      self.seq_lengths: batch.seq_lengths,
