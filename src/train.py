@@ -22,7 +22,7 @@ def get_model_and_placeholders(config):
     # None means that the dimension is variable, which we want for the batch size and the sequence length
     input_dim = output_dim = config['input_dim']
 
-    input_pl = tf.placeholder(tf.float32, shape=[None, 75, input_dim], name='input_pl')
+    input_pl = tf.placeholder(tf.float32, shape=[None, None, input_dim], name='input_pl')
     target_pl = tf.placeholder(tf.float32, shape=[None, None, output_dim], name='input_pl')
     seq_lengths_pl = tf.placeholder(tf.int32, shape=[None], name='seq_lengths_pl')
     mask_pl = tf.placeholder(tf.float32, shape=[None, None], name='mask_pl')

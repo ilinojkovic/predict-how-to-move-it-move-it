@@ -16,13 +16,12 @@ class RNNModel(object):
         assert mode in ['training', 'validation', 'inference']
         self.config = config
         self.input_ = placeholders['input_pl']
-        self.encoder_input_ = self.input_[:, :50, :]
-        self.decoder_input_ = self.input_[:, 50:, :]
+        self.encoder_input_, self.decoder_input_ = tf.split(self.input_, 2, axis=1)
         self.target = placeholders['target_pl']
+        self.encoder_target, self.decoder_target = tf.split(self.target, 2, axis=1)
         self.mask = placeholders['mask_pl']
         self.seq_lengths = placeholders['seq_lengths_pl']
-        self.encoder_seq_lengths = [50] * tf.shape(self.seq_lengths)[0]
-        self.decoder_seq_lengths = [25] * tf.shape(self.seq_lengths)[0]
+        self.encoder_seq_lengths = self.decoder_seq_lengths = tf.cast(self.seq_lengths / 2, dtype=tf.int32)
         self.mode = mode
         self.is_training = self.mode == 'training'
         self.reuse = self.mode == 'validation'
@@ -116,11 +115,9 @@ class RNNModel(object):
             decoder_outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder, ...)
             logits = decoder_outputs.rnn_output
 
-            print(logits.shape)
-
             outputs_flat = tf.reshape(logits, [-1, self.hidden_state_size])
             down_project = tf.layers.dense(outputs_flat, units=self.output_dim)
-            local_max_seq_length = tf.shape(self.input_)[1]
+            local_max_seq_length = tf.shape(self.decoder_input_)[1]
             self.prediction = tf.reshape(down_project, [self.batch_size, local_max_seq_length, self.output_dim])
 
 
@@ -136,8 +133,9 @@ class RNNModel(object):
                 # `self.target`. Hint 1: you will want to use the provided `self.mask` to make sure that padded values
                 # do not influence the loss. Hint 2: L2 loss is probably a good starting point ...
 
-                expanded_mask = tf.expand_dims(self.mask, axis=-1)
-                self.loss = tf.losses.mean_squared_error(labels=self.target, predictions=self.prediction, weights=expanded_mask)
+                _, decoder_mask = tf.split(self.mask, 2, axis=1)
+                expanded_mask = tf.expand_dims(decoder_mask, axis=-1)
+                self.loss = tf.losses.mean_squared_error(labels=self.decoder_target, predictions=self.prediction, weights=expanded_mask)
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
 
     def count_parameters(self):
@@ -159,8 +157,6 @@ class RNNModel(object):
         :return: A feed dict that can be passed to a session.run call
         """
         input_padded, target_padded = batch.get_padded_data()
-        # print('Mask shape: ', batch.mask.shape)
-        print('SEQ LENGTHS: ', batch.seq_lengths)
         feed_dict = {self.input_: input_padded,
                      self.target: target_padded,
                      self.seq_lengths: batch.seq_lengths,
