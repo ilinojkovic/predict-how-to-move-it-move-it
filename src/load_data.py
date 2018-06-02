@@ -11,6 +11,7 @@ class Dataset(object):
     """
     Abstract Dataset.
     """
+
     def __init__(self, input, target):
         self._input_ = input
         self._target = target
@@ -36,6 +37,7 @@ class AbstractFeeder(object):
     """
     An abstract class that provides batch-wise streaming access to the data.
     """
+
     def _get_batch(self, batch_ptr, no_shuffle=False):
         """
         Get the specified batch.
@@ -150,8 +152,10 @@ class Batch(object):
     """
     Represents one minibatch that can have variable sequence lengths.
     """
+
     def __init__(self, input_, targets, ids, **kwargs):
-        assert isinstance(input_, list) and (isinstance(targets, list) or targets is None), 'data expected in python lists'
+        assert isinstance(input_, list) and (
+                isinstance(targets, list) or targets is None), 'data expected in python lists'
         self.input_ = input_  # python list of numpy arrays
         self.target = targets  # python list of numpy arrays
         self.ids = ids  # numpy array of ids
@@ -206,6 +210,7 @@ class MotionDataset(Dataset, Feeder):
     """
     Represents the motion data.
     """
+
     @classmethod
     def load(cls, data_path, split, seq_length, batch_size, rng=np.random):
         """
@@ -248,8 +253,8 @@ class MotionDataset(Dataset, Feeder):
             angles_s = _split(angles)
             all_angles.extend(angles_s)
 
-            all_ids.extend([d['id']]*len(angles_s))
-            all_action_labels.extend([d['action_label']]*len(angles_s))
+            all_ids.extend([d['id']] * len(angles_s))
+            all_action_labels.extend([d['action_label']] * len(angles_s))
 
         assert len(all_angles) == len(all_ids)
 
@@ -293,5 +298,3 @@ class MotionDataset(Dataset, Feeder):
         ids = [self.ids[i] for i in indices]
         action_labels = [self.action_labels[i] for i in indices]
         return Batch(input_, target, ids=ids, action_labels=action_labels)
-
-
