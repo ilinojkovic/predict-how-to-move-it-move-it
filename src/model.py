@@ -190,10 +190,10 @@ class RNNModel(object):
             def lf(prev, i):  # function for sampling_based loss
                 return prev
 
-            outputs, _ = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
-                                                                    self.decoder_input_,
-                                                                    cell,
-                                                                    loop_function=lf)
+            outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
+                                                                                   self.decoder_input_,
+                                                                                   cell,
+                                                                                   loop_function=lf)
             self.prediction = outputs
 
     def build_loss(self):
