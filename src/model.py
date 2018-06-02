@@ -16,12 +16,15 @@ class RNNModel(object):
         assert mode in ['training', 'validation', 'inference']
         self.config = config
         self.input_ = placeholders['input_pl']
-        self.encoder_input_, self.decoder_input_ = tf.split(self.input_, 2, axis=1)
+        self.encoder_input_ = self.input_[:, :50, :]
+        self.decoder_input_ = self.input_[:, 50:, :]
         self.target = placeholders['target_pl']
-        self.encoder_target, self.decoder_target = tf.split(self.target, 2, axis=1)
+        self.encoder_target = self.target[:, :50, :]
+        self.decoder_target = self.target[:, 50:, :]
         self.mask = placeholders['mask_pl']
         self.seq_lengths = placeholders['seq_lengths_pl']
-        self.encoder_seq_lengths = self.decoder_seq_lengths = tf.cast(self.seq_lengths / 2, dtype=tf.int32)
+        self.encoder_seq_lengths = tf.ones(tf.shape(self.seq_lengths), dtype=tf.int32) * 50
+        self.decoder_seq_lengths = tf.ones(tf.shape(self.seq_lengths), dtype=tf.int32) * 25
         self.mode = mode
         self.is_training = self.mode == 'training'
         self.reuse = self.mode == 'validation'
@@ -133,7 +136,7 @@ class RNNModel(object):
                 # `self.target`. Hint 1: you will want to use the provided `self.mask` to make sure that padded values
                 # do not influence the loss. Hint 2: L2 loss is probably a good starting point ...
 
-                _, decoder_mask = tf.split(self.mask, 2, axis=1)
+                decoder_mask = self.mask[:, 50:]
                 expanded_mask = tf.expand_dims(decoder_mask, axis=-1)
                 self.loss = tf.losses.mean_squared_error(labels=self.decoder_target, predictions=self.prediction, weights=expanded_mask)
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
