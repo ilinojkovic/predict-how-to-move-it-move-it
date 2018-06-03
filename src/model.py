@@ -113,21 +113,16 @@ class RNNModel(object):
         :param mode: training, validation or inference
         """
         assert mode in ['training', 'validation', 'inference']
-        self.encoder_seq_len = 50
-        self.decoder_seq_len = 25
-
         self.config = config
-        self.input_ = placeholders['input_pl']
-        self.encoder_input_ = self.input_[:, :self.encoder_seq_len - 1, :]
-        self.decoder_input_ = self.input_[:, self.encoder_seq_len - 1:self.encoder_seq_len + self.decoder_seq_len - 1, :]
-        self.target = placeholders['target_pl']
-        self.decoder_target = self.target[:, self.encoder_seq_len:, :]
+        self.encoder_seq_len = config['encoder_seq_len']
+        self.decoder_seq_len = config['decoder_seq_len']
+        self.encoder_input_raw = placeholders['enc_in_pl']
+        self.decoder_input_raw = placeholders['dec_in_pl']
+        self.decoder_target_raw = placeholders['dec_out_pl']
         self.mask = placeholders['mask_pl']
         self.mode = mode
         self.is_training = self.mode == 'training'
         self.reuse = self.mode == 'validation'
-        self.batch_size = tf.shape(self.input_)[0]  # dynamic size
-        self.max_seq_length = tf.shape(self.input_)[1]  # dynamic size
         self.input_dim = config['input_dim']
         self.output_dim = config['output_dim']
         self.summary_collection = 'training_summaries' if mode == 'training' else 'validation_summaries'
@@ -135,9 +130,9 @@ class RNNModel(object):
         self.num_layers = config['num_layers']
 
         # === Transform the inputs ===
-        self.encoder_input_ = tf.transpose(self.encoder_input_, [1, 0, 2])
-        self.decoder_input_ = tf.transpose(self.decoder_input_, [1, 0, 2])
-        self.decoder_target = tf.transpose(self.decoder_target, [1, 0, 2])
+        self.encoder_input_ = tf.transpose(self.encoder_input_raw, [1, 0, 2])
+        self.decoder_input_ = tf.transpose(self.decoder_input_raw, [1, 0, 2])
+        self.decoder_target = tf.transpose(self.decoder_target_raw, [1, 0, 2])
 
         self.encoder_input_ = tf.reshape(self.encoder_input_, [-1, self.input_dim])
         self.decoder_input_ = tf.reshape(self.decoder_input_, [-1, self.input_dim])
@@ -194,7 +189,8 @@ class RNNModel(object):
                                                                                    self.decoder_input_,
                                                                                    cell,
                                                                                    loop_function=lf)
-            self.prediction = outputs
+            stacked_outputs = tf.stack(outputs)
+            self.prediction = tf.transpose(stacked_outputs, [1, 0, 2])
 
     def build_loss(self):
         """
@@ -214,7 +210,6 @@ class RNNModel(object):
                 self.loss = tf.losses.mean_squared_error(labels=self.decoder_target, predictions=self.prediction,
                                                          weights=expanded_mask)
 
-                # self.loss = tf.reduce_mean(tf.square(tf.subtract(self.decoder_target, self.prediction)))
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
 
     def count_parameters(self):
@@ -236,8 +231,12 @@ class RNNModel(object):
         :return: A feed dict that can be passed to a session.run call
         """
         input_padded, target_padded = batch.get_padded_data()
-        feed_dict = {self.input_: input_padded,
-                     self.target: target_padded,
+        encoder_input = input_padded[:, :self.encoder_seq_len - 1, :]
+        decoder_input = input_padded[:, self.encoder_seq_len - 1: self.encoder_seq_len + self.decoder_seq_len - 1, :]
+        decoder_target = target_padded[:, self.encoder_seq_len:, :]
+        feed_dict = {self.encoder_input_raw: encoder_input,
+                     self.decoder_input_raw: decoder_input,
+                     self.decoder_target_raw: decoder_target,
                      self.mask: batch.mask}
 
         return feed_dict

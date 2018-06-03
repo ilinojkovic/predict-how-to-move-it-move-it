@@ -24,11 +24,17 @@ def get_model_and_placeholders(config):
 
     input_pl = tf.placeholder(tf.float32, shape=[None, None, input_dim], name='input_pl')
     target_pl = tf.placeholder(tf.float32, shape=[None, None, output_dim], name='input_pl')
+    enc_in_pl = tf.placeholder(tf.float32, shape=[None, config['encoder_seq_len'] - 1, input_dim], name="enc_in")
+    dec_in_pl = tf.placeholder(tf.float32, shape=[None, config['decoder_seq_len'], input_dim], name="dec_in")
+    dec_out_pl = tf.placeholder(tf.float32, shape=[None, config['decoder_seq_len'], output_dim], name="dec_out")
     seq_lengths_pl = tf.placeholder(tf.int32, shape=[None], name='seq_lengths_pl')
     mask_pl = tf.placeholder(tf.float32, shape=[None, None], name='mask_pl')
 
     placeholders = {'input_pl': input_pl,
                     'target_pl': target_pl,
+                    'enc_in_pl': enc_in_pl,
+                    'dec_in_pl': dec_in_pl,
+                    'dec_out_pl': dec_out_pl,
                     'seq_lengths_pl': seq_lengths_pl,
                     'mask_pl': mask_pl}
 
