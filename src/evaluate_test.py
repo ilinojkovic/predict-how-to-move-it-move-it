@@ -56,7 +56,8 @@ def main(config):
             # print('Encoder input shape: ', encoder_input.shape)
             # print('Decoder input shape: ', decoder_input.shape)
             feed_dict = {placeholders['enc_in_pl']: encoder_input,
-                         placeholders['dec_in_pl']: decoder_input}
+                         placeholders['dec_in_pl']: decoder_input,
+                         placeholders['action_labels_pl']: batch.action_labels}
 
             predicted_poses = sess.run(fetch, feed_dict)
             print('Predicted poses entry shape: ', predicted_poses.shape)

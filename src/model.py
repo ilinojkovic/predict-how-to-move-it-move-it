@@ -32,7 +32,7 @@ class ResidualWrapper(RNNCell):
         output, new_state = self._cell(inputs, state, scope)
 
         # Add the residual connection
-        output = tf.add(output, inputs)
+        output = tf.add(output, inputs[:, :tf.shape(output)[1]])
 
         return output, new_state
 
@@ -119,6 +119,7 @@ class RNNModel(object):
         self.encoder_input_raw = placeholders['enc_in_pl']
         self.decoder_input_raw = placeholders['dec_in_pl']
         self.decoder_target_raw = placeholders['dec_out_pl']
+        self.action_labels = placeholders['action_labels_pl']
         self.mask = placeholders['mask_pl']
         self.mode = mode
         self.is_training = self.mode == 'training'
@@ -130,17 +131,23 @@ class RNNModel(object):
         self.num_layers = config['num_layers']
 
         # === Transform the inputs ===
-        self.encoder_input_ = tf.transpose(self.encoder_input_raw, [1, 0, 2])
-        self.decoder_input_ = tf.transpose(self.decoder_input_raw, [1, 0, 2])
-        self.decoder_target = tf.transpose(self.decoder_target_raw, [1, 0, 2])
+        with tf.name_scope('input'):
+            self.action_one_hot = tf.one_hot(self.action_labels, self.config['num_actions'])
 
-        self.encoder_input_ = tf.reshape(self.encoder_input_, [-1, self.input_dim])
-        self.decoder_input_ = tf.reshape(self.decoder_input_, [-1, self.input_dim])
-        self.decoder_target = tf.reshape(self.decoder_target, [-1, self.input_dim])
+            self.encoder_input_ = tf.transpose(self.encoder_input_raw, [1, 0, 2])
+            self.decoder_input_ = tf.transpose(self.decoder_input_raw, [1, 0, 2])
+            self.decoder_target = tf.transpose(self.decoder_target_raw, [1, 0, 2])
 
-        self.encoder_input_ = tf.split(self.encoder_input_, self.encoder_seq_len - 1, axis=0)
-        self.decoder_input_ = tf.split(self.decoder_input_, self.decoder_seq_len, axis=0)
-        self.decoder_target = tf.split(self.decoder_target, self.decoder_seq_len, axis=0)
+            self.encoder_input_ = tf.reshape(self.encoder_input_, [-1, self.input_dim])
+            self.decoder_input_ = tf.reshape(self.decoder_input_, [-1, self.input_dim])
+            self.decoder_target = tf.reshape(self.decoder_target, [-1, self.input_dim])
+
+            self.encoder_input_ = tf.split(self.encoder_input_, self.encoder_seq_len - 1, axis=0)
+            self.decoder_input_ = tf.split(self.decoder_input_, self.decoder_seq_len, axis=0)
+            self.decoder_target = tf.split(self.decoder_target, self.decoder_seq_len, axis=0)
+
+            self.encoder_input_ = [tf.concat([enc_input, self.action_one_hot], axis=1) for enc_input in self.encoder_input_]
+            self.decoder_input_ = [tf.concat([dec_input, self.action_one_hot], axis=1) for dec_input in self.decoder_input_]
 
     def build_graph(self):
         self.build_model()
@@ -183,7 +190,7 @@ class RNNModel(object):
             cell = ResidualWrapper(cell)
 
             def lf(prev, i):  # function for sampling_based loss
-                return prev
+                return tf.concat([prev, self.action_one_hot], axis=1)
 
             self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
                                                                                         self.decoder_input_,
@@ -237,6 +244,7 @@ class RNNModel(object):
         feed_dict = {self.encoder_input_raw: encoder_input,
                      self.decoder_input_raw: decoder_input,
                      self.decoder_target_raw: decoder_target,
+                     self.action_labels: batch.action_labels,
                      self.mask: batch.mask}
 
         return feed_dict
