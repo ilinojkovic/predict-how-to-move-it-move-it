@@ -22,7 +22,7 @@ def get_model_and_placeholders(config):
     # None means that the dimension is variable, which we want for the batch size and the sequence length
     input_dim = output_dim = config['input_dim']
 
-    with tf.name_scope('input'):
+    with tf.name_scope('Input'):
         enc_in_pl = tf.placeholder(tf.float32, shape=[None, config['encoder_seq_len'] - 1, input_dim], name="enc_in")
         dec_in_pl = tf.placeholder(tf.float32, shape=[None, config['decoder_seq_len'], input_dim], name="dec_in")
         dec_out_pl = tf.placeholder(tf.float32, shape=[None, config['decoder_seq_len'], output_dim], name="dec_out")
@@ -62,7 +62,7 @@ def main(config):
     global_step = tf.Variable(1, name='global_step', trainable=False)
 
     # create a training graph, this is the graph we will use to optimize the parameters
-    with tf.name_scope('training'):
+    with tf.name_scope('Training'):
         rnn_model = rnn_model_class(config, placeholders, mode='training')
         rnn_model.build_graph()
         print('created RNN model with {} parameters'.format(rnn_model.n_parameters))
@@ -84,19 +84,20 @@ def main(config):
         else:
             raise ValueError('learning rate type "{}" unknown.'.format(config['learning_rate_type']))
 
-        # TODO choose the optimizer you desire here and define `train_op. The loss should be accessible through rnn_model.loss
-        params = tf.trainable_variables()
-        optimizer = tf.train.AdamOptimizer(config['learning_rate'])
-        gradients = tf.gradients(rnn_model.loss, params)
+        with tf.name_scope('Step'):
+            # TODO choose the optimizer you desire here and define `train_op. The loss should be accessible through rnn_model.loss
+            params = tf.trainable_variables()
+            optimizer = tf.train.AdamOptimizer(config['learning_rate'])
+            gradients = tf.gradients(rnn_model.loss, params)
 
-        # clip the gradients to counter explosion
-        clipped_gradients, _ = tf.clip_by_global_norm(gradients, config['gradient_clip'])
+            # clip the gradients to counter explosion
+            clipped_gradients, _ = tf.clip_by_global_norm(gradients, config['gradient_clip'])
 
-        # backprop
-        train_op = optimizer.apply_gradients(zip(clipped_gradients, params), global_step=global_step)
+            # backprop
+            train_op = optimizer.apply_gradients(zip(clipped_gradients, params), global_step=global_step)
 
     # create a graph for validation
-    with tf.name_scope('validation'):
+    with tf.name_scope('Validation'):
         rnn_model_valid = rnn_model_class(config, placeholders, mode='validation')
         rnn_model_valid.build_graph()
 

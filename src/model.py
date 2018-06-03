@@ -69,15 +69,16 @@ class LinearSpaceDecoderWrapper(RNNCell):
             # Fine if not multi-rnn
             insize = self._cell.state_size
 
-        self.w_out = tf.get_variable("proj_w_out",
-                                     [insize, output_size],
-                                     dtype=tf.float32,
-                                     initializer=tf.random_uniform_initializer(minval=-0.04, maxval=0.04))
-        self.b_out = tf.get_variable("proj_b_out", [output_size],
-                                     dtype=tf.float32,
-                                     initializer=tf.random_uniform_initializer(minval=-0.04, maxval=0.04))
+        with tf.name_scope('Dense'):
+            self.w_out = tf.get_variable("proj_w_out",
+                                         [insize, output_size],
+                                         dtype=tf.float32,
+                                         initializer=tf.random_uniform_initializer(minval=-0.04, maxval=0.04))
+            self.b_out = tf.get_variable("proj_b_out", [output_size],
+                                         dtype=tf.float32,
+                                         initializer=tf.random_uniform_initializer(minval=-0.04, maxval=0.04))
 
-        self.linear_output_size = output_size
+            self.linear_output_size = output_size
 
     @property
     def state_size(self):
@@ -131,7 +132,7 @@ class RNNModel(object):
         self.num_layers = config['num_layers']
 
         # === Transform the inputs ===
-        with tf.name_scope('input'):
+        with tf.name_scope('Preprocess'):
             self.action_one_hot = tf.one_hot(self.action_labels, self.config['num_actions'])
 
             self.encoder_input_ = tf.transpose(self.encoder_input_raw, [1, 0, 2])
@@ -178,7 +179,7 @@ class RNNModel(object):
         #      - `self.final_state`: the final state of the RNN after the outputs have been obtained
         #      - `self.prediction`: the actual output of the model in shape `(batch_size, self.max_seq_length, output_dim)`
 
-        with tf.variable_scope('rnn_model', reuse=self.reuse):
+        with tf.variable_scope('Seq2seq', reuse=self.reuse):
             # Martinez seq2seq
             cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
             cell = tf.contrib.rnn.MultiRNNCell(cells)
