@@ -185,11 +185,11 @@ class RNNModel(object):
             def lf(prev, i):  # function for sampling_based loss
                 return prev
 
-            outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
-                                                                                   self.decoder_input_,
-                                                                                   cell,
-                                                                                   loop_function=lf)
-            stacked_outputs = tf.stack(outputs)
+            self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
+                                                                                        self.decoder_input_,
+                                                                                        cell,
+                                                                                        loop_function=lf)
+            stacked_outputs = tf.stack(self.outputs)
             self.prediction = tf.transpose(stacked_outputs, [1, 0, 2])
 
     def build_loss(self):
@@ -207,7 +207,7 @@ class RNNModel(object):
                 decoder_mask = self.mask[:, self.encoder_seq_len:]
                 expanded_mask = tf.expand_dims(decoder_mask, axis=-1)
                 expanded_mask = tf.transpose(expanded_mask, [1, 0, 2])
-                self.loss = tf.losses.mean_squared_error(labels=self.decoder_target, predictions=self.prediction,
+                self.loss = tf.losses.mean_squared_error(labels=self.decoder_target, predictions=self.outputs,
                                                          weights=expanded_mask)
 
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
