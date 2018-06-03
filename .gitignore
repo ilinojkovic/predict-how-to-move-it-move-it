@@ -1,7 +1,10 @@
+.idea/
 data/
 .DS_STORE
 trained_models/
+src/config.py
 
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

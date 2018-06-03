@@ -1,4 +1,102 @@
 import tensorflow as tf
+from tensorflow.contrib.rnn.python.ops.core_rnn_cell import RNNCell
+
+
+class ResidualWrapper(RNNCell):
+    """Operator adding residual connections to a given cell."""
+
+    def __init__(self, cell):
+        """Create a cell with added residual connection.
+        Args:
+          cell: an RNNCell. The input is added to the output.
+        Raises:
+          TypeError: if cell is not an RNNCell.
+        """
+        if not isinstance(cell, RNNCell):
+            raise TypeError("The parameter cell is not a RNNCell.")
+
+        self._cell = cell
+
+    @property
+    def state_size(self):
+        return self._cell.state_size
+
+    @property
+    def output_size(self):
+        return self._cell.output_size
+
+    def __call__(self, inputs, state, scope=None):
+        """Run the cell and add a residual connection."""
+
+        # Run the rnn as usual
+        output, new_state = self._cell(inputs, state, scope)
+
+        # Add the residual connection
+        output = tf.add(output, inputs)
+
+        return output, new_state
+
+
+class LinearSpaceDecoderWrapper(RNNCell):
+    """Operator adding a linear encoder to an RNN cell"""
+
+    def __init__(self, cell, output_size):
+        """Create a cell with with a linear encoder in space.
+        Args:
+          cell: an RNNCell. The input is passed through a linear layer.
+        Raises:
+          TypeError: if cell is not an RNNCell.
+        """
+        if not isinstance(cell, RNNCell):
+            raise TypeError("The parameter cell is not a RNNCell.")
+
+        self._cell = cell
+
+        print('output_size = {0}'.format(output_size))
+        print(' state_size = {0}'.format(self._cell.state_size))
+
+        # Tuple if multi-rnn
+        if isinstance(self._cell.state_size, tuple):
+
+            # Fine if GRU...
+            insize = self._cell.state_size[-1]
+
+            # LSTMStateTuple if LSTM
+            # if isinstance(insize, LSTMStateTuple):
+            #     insize = insize.h
+
+        else:
+            # Fine if not multi-rnn
+            insize = self._cell.state_size
+
+        self.w_out = tf.get_variable("proj_w_out",
+                                     [insize, output_size],
+                                     dtype=tf.float32,
+                                     initializer=tf.random_uniform_initializer(minval=-0.04, maxval=0.04))
+        self.b_out = tf.get_variable("proj_b_out", [output_size],
+                                     dtype=tf.float32,
+                                     initializer=tf.random_uniform_initializer(minval=-0.04, maxval=0.04))
+
+        self.linear_output_size = output_size
+
+    @property
+    def state_size(self):
+        return self._cell.state_size
+
+    @property
+    def output_size(self):
+        return self.linear_output_size
+
+    def __call__(self, inputs, state, scope=None):
+        """Use a linear layer and pass the output to the cell."""
+
+        # Run the rnn as usual
+        output, new_state = self._cell(inputs, state, scope)
+
+        # Apply the multiplication to everything
+        output = tf.matmul(output, self.w_out) + self.b_out
+
+        return output, new_state
 
 
 class RNNModel(object):
@@ -6,6 +104,7 @@ class RNNModel(object):
     Creates training and validation computational graphs.
     Note that tf.variable_scope enables parameter sharing so that both graphs are identical.
     """
+
     def __init__(self, config, placeholders, mode):
         """
         Basic setup.
@@ -15,20 +114,33 @@ class RNNModel(object):
         """
         assert mode in ['training', 'validation', 'inference']
         self.config = config
-        self.input_ = placeholders['input_pl']
-        self.target = placeholders['target_pl']
+        self.encoder_seq_len = config['encoder_seq_len']
+        self.decoder_seq_len = config['decoder_seq_len']
+        self.encoder_input_raw = placeholders['enc_in_pl']
+        self.decoder_input_raw = placeholders['dec_in_pl']
+        self.decoder_target_raw = placeholders['dec_out_pl']
         self.mask = placeholders['mask_pl']
-        self.seq_lengths = placeholders['seq_lengths_pl']
         self.mode = mode
         self.is_training = self.mode == 'training'
         self.reuse = self.mode == 'validation'
-        self.batch_size = tf.shape(self.input_)[0]  # dynamic size
-        self.max_seq_length = tf.shape(self.input_)[1]  # dynamic size
         self.input_dim = config['input_dim']
         self.output_dim = config['output_dim']
         self.summary_collection = 'training_summaries' if mode == 'training' else 'validation_summaries'
         self.hidden_state_size = config['hidden_state_size']
         self.num_layers = config['num_layers']
+
+        # === Transform the inputs ===
+        self.encoder_input_ = tf.transpose(self.encoder_input_raw, [1, 0, 2])
+        self.decoder_input_ = tf.transpose(self.decoder_input_raw, [1, 0, 2])
+        self.decoder_target = tf.transpose(self.decoder_target_raw, [1, 0, 2])
+
+        self.encoder_input_ = tf.reshape(self.encoder_input_, [-1, self.input_dim])
+        self.decoder_input_ = tf.reshape(self.decoder_input_, [-1, self.input_dim])
+        self.decoder_target = tf.reshape(self.decoder_target, [-1, self.input_dim])
+
+        self.encoder_input_ = tf.split(self.encoder_input_, self.encoder_seq_len - 1, axis=0)
+        self.decoder_input_ = tf.split(self.decoder_input_, self.decoder_seq_len, axis=0)
+        self.decoder_target = tf.split(self.decoder_target, self.decoder_seq_len, axis=0)
 
     def build_graph(self):
         self.build_model()
@@ -60,22 +172,25 @@ class RNNModel(object):
         #      - `self.prediction`: the actual output of the model in shape `(batch_size, self.max_seq_length, output_dim)`
 
         with tf.variable_scope('rnn_model', reuse=self.reuse):
-
-            cells = [tf.contrib.rnn.GRUCell(num_units=self.hidden_state_size) for _ in range(self.num_layers)]
-
-            # we stack the cells together and create one big RNN cell
+            # Martinez seq2seq
+            cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
             cell = tf.contrib.rnn.MultiRNNCell(cells)
 
-            self.initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
+            # Add space decoder
+            cell = LinearSpaceDecoderWrapper(cell, self.input_dim)
 
-            outputs, self.final_state = tf.nn.dynamic_rnn(cell=cell, initial_state=self.initial_state,
-                                                          inputs=self.input_, sequence_length=self.seq_lengths)
+            # Finally, wrap everything in a residual layer if we want to model velocities
+            cell = ResidualWrapper(cell)
 
-            local_max_seq_length = tf.shape(self.input_)[1]
-            outputs_flat = tf.reshape(outputs, [-1, self.hidden_state_size])
-            down_project = tf.layers.dense(outputs_flat, units=self.output_dim)
-            self.prediction = tf.reshape(down_project, [self.batch_size, local_max_seq_length, self.output_dim])
+            def lf(prev, i):  # function for sampling_based loss
+                return prev
 
+            outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
+                                                                                   self.decoder_input_,
+                                                                                   cell,
+                                                                                   loop_function=lf)
+            stacked_outputs = tf.stack(outputs)
+            self.prediction = tf.transpose(stacked_outputs, [1, 0, 2])
 
     def build_loss(self):
         """
@@ -89,7 +204,12 @@ class RNNModel(object):
                 # `self.target`. Hint 1: you will want to use the provided `self.mask` to make sure that padded values
                 # do not influence the loss. Hint 2: L2 loss is probably a good starting point ...
 
-                self.loss = tf.losses.mean_squared_error(labels=self.target, predictions=self.prediction)
+                decoder_mask = self.mask[:, self.encoder_seq_len:]
+                expanded_mask = tf.expand_dims(decoder_mask, axis=-1)
+                expanded_mask = tf.transpose(expanded_mask, [1, 0, 2])
+                self.loss = tf.losses.mean_squared_error(labels=self.decoder_target, predictions=self.prediction,
+                                                         weights=expanded_mask)
+
                 tf.summary.scalar('loss', self.loss, collections=[self.summary_collection])
 
     def count_parameters(self):
@@ -111,10 +231,12 @@ class RNNModel(object):
         :return: A feed dict that can be passed to a session.run call
         """
         input_padded, target_padded = batch.get_padded_data()
-
-        feed_dict = {self.input_: input_padded,
-                     self.target: target_padded,
-                     self.seq_lengths: batch.seq_lengths,
+        encoder_input = input_padded[:, :self.encoder_seq_len - 1, :]
+        decoder_input = input_padded[:, self.encoder_seq_len - 1: self.encoder_seq_len + self.decoder_seq_len - 1, :]
+        decoder_target = target_padded[:, self.encoder_seq_len:, :]
+        feed_dict = {self.encoder_input_raw: encoder_input,
+                     self.decoder_input_raw: decoder_input,
+                     self.decoder_target_raw: decoder_target,
                      self.mask: batch.mask}
 
         return feed_dict
