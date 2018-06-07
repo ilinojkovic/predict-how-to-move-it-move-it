@@ -203,20 +203,23 @@ def preprocess(data):
     to_remove = np.where(stats['std'] == 0)[0]
     removed_values = stats['std'][to_remove]
 
+    persisted = np.where(stats['std' != 0])[0]
+
     processed_data = []
     for entry in data:
         filtered_entry = np.delete(entry, to_remove, axis=1)
-        # normalized_entry = (filtered_entry - stats['min']) / (stats['max'] - stats['min'])
-        processed_data.append(filtered_entry)
+        normalized_entry = (filtered_entry - stats['min'][persisted]) / (stats['max'][persisted] - stats['min'][persisted])
+        processed_data.append(normalized_entry)
 
     return processed_data, to_remove, removed_values
 
 
 def postprocess(data, removed_features, removed_values):
     stats = load_stats()
+    persisted = np.where(stats['std' != 0])[0]
 
     # Un-normalize
-    # data = (stats['max'] - stats['min']) * data + stats['min']
+    data = (stats['max'][persisted] - stats['min'][persisted]) * data + stats['min'][persisted]
 
     # Insert removed features
     insertion_indices = removed_features - np.arange(len(removed_features))
