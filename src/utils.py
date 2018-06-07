@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pickle
 
 
 class Skeleton(object):
@@ -65,7 +66,7 @@ def exp2rotmat(expmap):
     skew[:, 1, 2] = -axis[:, 0]
     skew = skew - np.transpose(skew, [0, 2, 1])
     R = np.repeat(np.eye(3, 3)[np.newaxis, ...], expmap.shape[0], axis=0)
-    R = R*cost + (1 - cost)*rrt + sint*skew
+    R = R * cost + (1 - cost) * rrt + sint * skew
     return R
 
 
@@ -109,7 +110,7 @@ def forward_kinematics(expmap, skeleton=Skeleton, root_pos=None):
                 rotations[j] = rotmat[f, j]
 
             else:  # this is a regular joint
-                positions[f, j] = np.matmul(skeleton.offsets[j:j+1], rotations[skeleton.parents[j]])
+                positions[f, j] = np.matmul(skeleton.offsets[j:j + 1], rotations[skeleton.parents[j]])
                 positions[f, j] += positions[f, skeleton.parents[j]]
                 rotations[j] = np.matmul(rotmat[f, j], rotations[skeleton.parents[j]])
 
@@ -169,3 +170,56 @@ def export_to_csv(data, ids, output_file):
         output_file.append('.csv')
 
     data_frame.to_csv(output_file, float_format='%.8f')
+
+
+def save_stats(obj, path='./', name='stats'):
+    with open(path + name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
+def load_stats(path='./', name='stats'):
+    with open(path + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
+
+def calculate_stats(data):
+    """
+    Calculate data statistics
+    :param data: List of matrices with dimension n_batches * n_features
+    :return: Dictionary of statistics
+    """
+    data = np.concatenate(data)
+    return {
+        'min': np.min(data, axis=0),
+        'max': np.max(data, axis=0),
+        'mean': np.mean(data, axis=0),
+        'std': np.std(data, axis=0)
+    }
+
+
+def preprocess(data):
+    stats = load_stats()
+
+    to_remove = np.where(stats['std'] == 0)[0]
+    removed_values = stats['std'][to_remove]
+
+    processed_data = []
+    for entry in data:
+        filtered_entry = np.delete(entry, to_remove, axis=1)
+        # normalized_entry = (filtered_entry - stats['min']) / (stats['max'] - stats['min'])
+        processed_data.append(filtered_entry)
+
+    return processed_data, to_remove, removed_values
+
+
+def postprocess(data, removed_features, removed_values):
+    stats = load_stats()
+
+    # Un-normalize
+    # data = (stats['max'] - stats['min']) * data + stats['min']
+
+    # Insert removed features
+    insertion_indices = removed_features - np.arange(len(removed_features))
+    data = np.insert(data, insertion_indices, removed_values, axis=2)
+
+    return data

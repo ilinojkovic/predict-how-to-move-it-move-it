@@ -13,7 +13,7 @@ train_config['hidden_state_size'] = 1024  # TODO specify the hidden state size
 train_config['num_layers'] = 1  # TODO Specify the number of layers
 
 train_config['learning_rate'] = 0.0001  # TODO specify a learning rate (this is currently just a dummy value)
-train_config['n_epochs'] = 5  # TODO for how many epochs to train (this is currently just a dummy value)
+train_config['n_epochs'] = 1  # TODO for how many epochs to train (this is currently just a dummy value)
 train_config['save_checkpoints_every_epoch'] = 1  # after how many epochs the trained model should be saved
 train_config['n_keep_checkpoints'] = 1  # how many saved checkpoints to keep
 train_config['gradient_clip'] = 5  # TODO gradient clipping scalar
@@ -28,6 +28,6 @@ train_config['learning_rate_decay_rate'] = 0.95
 # some additional configuration parameters required when the configured model is used at inference time
 test_config = train_config.copy()
 test_config['max_seq_length'] = -1  # want to use entire sequence during test, which is fixed to 50, don't change this
-test_config['model_dir'] = '../trained_models/a_name_1528042795/'  # TODO path to the model that you want to evaluate
+test_config['model_dir'] = '../trained_models/a_name_1528369093/'  # TODO path to the model that you want to evaluate
 test_config['checkpoint_id'] = None  # if None, the last checkpoint will be used
 test_config['prediction_length'] = 25  # how many frames to predict into the future (assignment requires 25 frames, but you can experiment with more if you'd like)

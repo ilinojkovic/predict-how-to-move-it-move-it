@@ -4,13 +4,15 @@ import numpy as np
 
 from config import test_config
 from visualize import visualize_joint_angles
-from utils import export_to_csv
+from utils import export_to_csv, preprocess, postprocess
 from train import load_data, get_model_and_placeholders
 
 
 def main(config):
     # load the data
     data_test = load_data(config, 'test')
+
+    data_test.input_, removed_features, removed_values = preprocess(data_test.input_)
 
     config['input_dim'] = config['output_dim'] = data_test.input_[0].shape[-1]
     rnn_model, placeholders = get_model_and_placeholders(config)
@@ -41,7 +43,7 @@ def main(config):
             # initialize the RNN with the known sequence (here 2 seconds)
             # no need to pad the batch because in the test set all batches have the same length
             input_ = np.array(batch.input_)
-            seeds.append(input_)
+            seeds.append(postprocess(input_, removed_features, removed_values))
 
             # here we are requesting the final state as we later want to supply this back into the RNN
             # this is why the model should have a member `self.final_state`
@@ -60,7 +62,7 @@ def main(config):
                          placeholders['action_labels_pl']: batch.action_labels}
 
             predicted_poses = sess.run(fetch, feed_dict)
-            print('Predicted poses entry shape: ', predicted_poses.shape)
+            predicted_poses = postprocess(predicted_poses, removed_features, removed_values)
 
             # # now get the prediction by predicting one pose at a time and feeding this pose back into the model to
             # # get the prediction for the subsequent time step
@@ -94,7 +96,6 @@ def main(config):
 
         print('Seeds shape: ', seeds.shape)
         print('Predictions shape: ', predictions.shape)
-
 
     # the predictions are now stored in test_predictions, you can do with them what you want
     # for example, visualize a random entry
