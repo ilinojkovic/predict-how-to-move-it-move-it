@@ -242,20 +242,6 @@ class MotionDataset(Dataset, Feeder):
             if seq_length == 0:
                 raise ValueError('sequence length cannot be 0')
 
-            print('Data shape: ', data.shape)
-
-            tot_length = data.shape[0]
-            strided_data = list(_strided_app(data, L=seq_length, S=1))
-            non_strided_data = np.split(data, range(0, tot_length, seq_length)[1:], axis=0)
-
-            print('Len strided: ', len(strided_data))
-            print('Strided shape: ', strided_data[0].shape)
-            print('')
-            print('Non strided: ', len(non_strided_data))
-            print('Non strided shape: ', non_strided_data[0].shape)
-
-            # assert 0 == 1
-
             if stride:
                 L = 75
                 S = 1
