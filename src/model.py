@@ -239,6 +239,8 @@ class RNNModel(object):
         :return: A feed dict that can be passed to a session.run call
         """
         input_padded, target_padded = batch.get_padded_data()
+        print('Input padded shape: ', input_padded.shape)
+        print('Target padded shape: ', target_padded.shape)
         encoder_input = input_padded[:, :self.encoder_seq_len - 1, :]
         decoder_input = input_padded[:, self.encoder_seq_len - 1: self.encoder_seq_len + self.decoder_seq_len - 1, :]
         decoder_target = target_padded[:, self.encoder_seq_len:, :]
