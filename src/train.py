@@ -55,11 +55,11 @@ def main(config):
     stats = calculate_stats(data_train.input_)
     save_stats(stats)
 
-    data_train.input_, _, _ = preprocess(data_train.input_)
-    data_train.target, _, _ = preprocess(data_train.target)
-
-    data_valid.input_, _, _ = preprocess(data_valid.input_)
-    data_valid.target, _, _ = preprocess(data_valid.target)
+    # data_train.input_, _, _ = preprocess(data_train.input_)
+    # data_train.target, _, _ = preprocess(data_train.target)
+    #
+    # data_valid.input_, _, _ = preprocess(data_valid.input_)
+    # data_valid.target, _, _ = preprocess(data_valid.target)
 
     config['input_dim'] = data_train.input_[0].shape[-1]
     config['output_dim'] = data_train.target[0].shape[-1]

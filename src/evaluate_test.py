@@ -12,7 +12,7 @@ def main(config):
     # load the data
     data_test = load_data(config, 'test')
 
-    data_test.input_, removed_features, removed_values = preprocess(data_test.input_)
+    # data_test.input_, removed_features, removed_values = preprocess(data_test.input_)
 
     config['input_dim'] = config['output_dim'] = data_test.input_[0].shape[-1]
     rnn_model, placeholders = get_model_and_placeholders(config)
@@ -43,7 +43,8 @@ def main(config):
             # initialize the RNN with the known sequence (here 2 seconds)
             # no need to pad the batch because in the test set all batches have the same length
             input_ = np.array(batch.input_)
-            seeds.append(postprocess(input_, removed_features, removed_values))
+            # postprocessed_input = postprocess(input_, removed_features, removed_values)
+            seeds.append(input_)
 
             # here we are requesting the final state as we later want to supply this back into the RNN
             # this is why the model should have a member `self.final_state`
@@ -62,7 +63,7 @@ def main(config):
                          placeholders['action_labels_pl']: batch.action_labels}
 
             predicted_poses = sess.run(fetch, feed_dict)
-            predicted_poses = postprocess(predicted_poses, removed_features, removed_values)
+            # predicted_poses = postprocess(predicted_poses, removed_features, removed_values)
 
             # # now get the prediction by predicting one pose at a time and feeding this pose back into the model to
             # # get the prediction for the subsequent time step
