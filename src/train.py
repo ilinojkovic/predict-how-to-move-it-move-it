@@ -9,12 +9,13 @@ from load_data import MotionDataset
 from utils import export_config, calculate_stats, save_stats, preprocess
 
 
-def load_data(config, split):
+def load_data(config, split, stride=False):
     print('Loading data from {} ...'.format(config['data_dir']))
     return MotionDataset.load(data_path=config['data_dir'],
                               split=split,
                               seq_length=config['max_seq_length'],
-                              batch_size=config['batch_size'])
+                              batch_size=config['batch_size'],
+                              stride=stride)
 
 
 def get_model_and_placeholders(config):
@@ -47,7 +48,7 @@ def main(config):
     print('Writing checkpoints into {}'.format(config['model_dir']))
 
     # load the data, this requires that the *.npz files you downloaded from Kaggle be named `train.npz` and `valid.npz`
-    data_train = load_data(config, 'train')
+    data_train = load_data(config, 'train', stride=True)
     data_valid = load_data(config, 'valid')
 
     # TODO if you would like to do any preprocessing of the data, here would be a good opportunity

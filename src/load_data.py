@@ -212,7 +212,7 @@ class MotionDataset(Dataset, Feeder):
     """
 
     @classmethod
-    def load(cls, data_path, split, seq_length, batch_size, rng=np.random):
+    def load(cls, data_path, split, seq_length, batch_size, rng=np.random, stride=False):
         """
         Load the data from the hard disk.
         :param data_path: Where the *.npz files are stored.
@@ -220,11 +220,17 @@ class MotionDataset(Dataset, Feeder):
         :param seq_length: Desired sequence length. If -1, the input sequences will not be splitted.
         :param batch_size: Desired batch size.
         :param rng: Random number generator.
+        :param stride: Boolean specifying whether the split method should use stride.
         :return: An instance of this class
         """
         assert split in ['train', 'valid', 'test']
 
-        def _split(data):
+        def _strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
+            nrows = ((a.size - L) // S) + 1
+            n = a.strides[0]
+            return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n, n))
+
+        def _split(data, stride=False):
             """
             Split data into chunks of size <= seq_length
             :param data: np array of shape (tot_length, dof)
@@ -235,8 +241,11 @@ class MotionDataset(Dataset, Feeder):
             if seq_length == 0:
                 raise ValueError('sequence length cannot be 0')
 
-            tot_length = data.shape[0]
-            return np.split(data, range(0, tot_length, seq_length)[1:], axis=0)
+            if stride:
+                return list(_strided_app(data, L=seq_length, S=1))
+            else:
+                tot_length = data.shape[0]
+                return np.split(data, range(0, tot_length, seq_length)[1:], axis=0)
 
         data_file = os.path.join(data_path, '{}.npz'.format(split))
         print('load sequences of length {} from {}'.format(seq_length, data_file))
@@ -250,7 +259,7 @@ class MotionDataset(Dataset, Feeder):
 
         for d in data:
             angles = d['angles']
-            angles_s = _split(angles)
+            angles_s = _split(angles, stride=stride)
             all_angles.extend(angles_s)
 
             all_ids.extend([d['id']] * len(angles_s))
