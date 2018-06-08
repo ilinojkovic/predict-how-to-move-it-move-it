@@ -203,7 +203,7 @@ def preprocess(data):
     to_remove = np.where(stats['std'] == 0)[0]
     removed_values = stats['std'][to_remove]
 
-    persisted = np.where(stats['std' != 0])[0]
+    persisted = np.where(stats['std'] != 0)[0]
 
     processed_data = []
     for entry in data:
@@ -216,7 +216,7 @@ def preprocess(data):
 
 def postprocess(data, removed_features, removed_values):
     stats = load_stats()
-    persisted = np.where(stats['std' != 0])[0]
+    persisted = np.where(stats['std'] != 0)[0]
 
     # Un-normalize
     data = (stats['max'][persisted] - stats['min'][persisted]) * data + stats['min'][persisted]
