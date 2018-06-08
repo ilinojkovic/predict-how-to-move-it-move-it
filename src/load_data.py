@@ -226,9 +226,10 @@ class MotionDataset(Dataset, Feeder):
         assert split in ['train', 'valid', 'test']
 
         def _strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
-            nrows = ((a.size - L) // S) + 1
-            n = a.strides[0]
-            return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n, n))
+            nrows = ((a.shape[0] - L) // S) + 1
+            n1 = a.strides[0]
+            n2 = a.strides[1]
+            return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n1, n2))
 
         def _split(data, stride=False):
             """
@@ -241,8 +242,28 @@ class MotionDataset(Dataset, Feeder):
             if seq_length == 0:
                 raise ValueError('sequence length cannot be 0')
 
+            print('Data shape: ', data.shape)
+
+            tot_length = data.shape[0]
+            strided_data = list(_strided_app(data, L=seq_length, S=1))
+            non_strided_data = np.split(data, range(0, tot_length, seq_length)[1:], axis=0)
+
+            print('Len strided: ', len(strided_data))
+            print('Strided shape: ', strided_data[0].shape)
+            print('')
+            print('Non strided: ', len(non_strided_data))
+            print('Non strided shape: ', non_strided_data[0].shape)
+
+            # assert 0 == 1
+
             if stride:
-                return list(_strided_app(data, L=seq_length, S=1))
+                L = 75
+                S = 1
+                strided_data = []
+                for i in range(data.shape[0]-L):
+                    strided_data.append(data[i:i + L])
+
+                return strided_data
             else:
                 tot_length = data.shape[0]
                 return np.split(data, range(0, tot_length, seq_length)[1:], axis=0)
