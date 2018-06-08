@@ -267,6 +267,8 @@ class MotionDataset(Dataset, Feeder):
 
         assert len(all_angles) == len(all_ids)
 
+        print('num. samples: ', len(all_angles))
+
         # create input and target
         input_ = all_angles
 
