@@ -134,7 +134,6 @@ class RNNModel(object):
 
         # === Transform the inputs ===
         with tf.name_scope('Preprocess'):
-            self.action_one_hot = tf.one_hot(self.action_labels, self.config['num_actions'])
 
             self.encoder_input_ = tf.transpose(self.encoder_input_raw, [1, 0, 2])
             self.decoder_input_ = tf.transpose(self.decoder_input_raw, [1, 0, 2])
@@ -148,8 +147,10 @@ class RNNModel(object):
             self.decoder_input_ = tf.split(self.decoder_input_, self.decoder_seq_len, axis=0)
             self.decoder_target = tf.split(self.decoder_target, self.decoder_seq_len, axis=0)
 
-            self.encoder_input_ = [tf.concat([enc_input, self.action_one_hot], axis=1) for enc_input in self.encoder_input_]
-            self.decoder_input_ = [tf.concat([dec_input, self.action_one_hot], axis=1) for dec_input in self.decoder_input_]
+            if config['concat_labels']:
+                self.action_one_hot = tf.one_hot(self.action_labels, self.config['num_actions'])
+                self.encoder_input_ = [tf.concat([enc_input, self.action_one_hot], axis=1) for enc_input in self.encoder_input_]
+                self.decoder_input_ = [tf.concat([dec_input, self.action_one_hot], axis=1) for dec_input in self.decoder_input_]
 
     def build_graph(self):
         self.build_model()
@@ -183,26 +184,31 @@ class RNNModel(object):
         with tf.variable_scope('Seq2seq', reuse=self.reuse):
             # Martinez seq2seq
             cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
-            basic_cell = tf.contrib.rnn.MultiRNNCell(cells)
+            cell = tf.contrib.rnn.MultiRNNCell(cells)
 
             # Add space decoder
-            tied_cell = LinearSpaceDecoderWrapper(basic_cell, self.input_dim)
+            cell = LinearSpaceDecoderWrapper(cell, self.input_dim)
 
-            # Finally, wrap everything in a residual layer if we want to model velocities
-            tied_cell = ResidualWrapper(tied_cell)
+            if config['model_velocities']:
+                # Finally, wrap everything in a residual layer if we want to model velocities
+                cell = ResidualWrapper(cell)
 
             def lf(prev, i):  # function for sampling_based loss
-                return tf.concat([prev, self.action_one_hot], axis=1)
+
+                if config['concat_labels']:
+                    return tf.concat([prev, self.action_one_hot], axis=1)
+                else:
+                    return prev
 
             if config['share_weights']:
                 self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
                                                                                             self.decoder_input_,
-                                                                                            tied_cell,
+                                                                                            cell,
                                                                                             loop_function=lf)
             else:
-                self.outputs, self.final_state = tf.contrib.legacy_seq2seq.basic_rnn_seq2seq(self.encoder_input_,
-                                                                                             self.decoder_input_,
-                                                                                             tied_cell)
+                _, enc_state = tf.contrib.rnn.static_rnn(cell, self.encoder_input_, dtype=tf.float32)  # Encoder
+                self.outputs, self.states = tf.contrib.legacy_seq2seq.rnn_decoder(self.decoder_input_, enc_state, cell,
+                                                                             loop_function=lf)  # Decoder
 
             stacked_outputs = tf.stack(self.outputs)
             self.prediction = tf.transpose(stacked_outputs, [1, 0, 2])
@@ -254,7 +260,9 @@ class RNNModel(object):
         feed_dict = {self.encoder_input_raw: encoder_input,
                      self.decoder_input_raw: decoder_input,
                      self.decoder_target_raw: decoder_target,
-                     self.action_labels: batch.action_labels,
                      self.mask: batch.mask}
+
+        if config['concat_labels']:
+            feed_dict[self.action_labels] = batch.action_labels
 
         return feed_dict
