@@ -19,8 +19,9 @@ train_config['save_checkpoints_every_epoch'] = 1  # after how many epochs the tr
 train_config['n_keep_checkpoints'] = 1  # how many saved checkpoints to keep
 train_config['gradient_clip'] = 5  # TODO gradient clipping scalar
 
-train_config['normalize'] = True  # whether data should be min-max normalized before training
-train_config['stride'] = False  # whether striding instead of splitting should be used during data loading
+train_config['normalize'] = False  # whether data should be min-max normalized before training
+train_config['train_stride'] = True  # whether striding instead of splitting should be used during data loading
+train_config['eval_stride'] = False
 
 # some code to anneal the learning rate, this is implemented for you, you can just choose it here
 train_config['learning_rate_type'] = 'fixed'  # ['fixed', 'exponential', 'linear']

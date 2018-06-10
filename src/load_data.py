@@ -213,7 +213,7 @@ class MotionDataset(Dataset, Feeder):
     """
 
     @classmethod
-    def load(cls, data_path, split, seq_length, batch_size, rng=np.random):
+    def load(cls, data_path, split, seq_length, batch_size, rng=np.random, stride=False):
         """
         Load the data from the hard disk.
         :param data_path: Where the *.npz files are stored.
@@ -221,6 +221,7 @@ class MotionDataset(Dataset, Feeder):
         :param seq_length: Desired sequence length. If -1, the input sequences will not be splitted.
         :param batch_size: Desired batch size.
         :param rng: Random number generator.
+        :param stride: Whether striding instead of splitting should be used.
         :return: An instance of this class
         """
         assert split in ['train', 'valid', 'test']
@@ -236,7 +237,7 @@ class MotionDataset(Dataset, Feeder):
             if seq_length == 0:
                 raise ValueError('sequence length cannot be 0')
 
-            if config['stride']:
+            if stride:
                 L = 75
                 S = 1
                 strided_data = []

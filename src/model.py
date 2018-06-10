@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn.python.ops.core_rnn_cell import RNNCell
 from config import train_config as config
 
+
 class ResidualWrapper(RNNCell):
     """Operator adding residual connections to a given cell."""
 

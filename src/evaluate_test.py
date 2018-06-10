@@ -10,7 +10,7 @@ from train import load_data, get_model_and_placeholders
 
 def main(config):
     # load the data
-    data_test = load_data(config, 'test')
+    data_test = load_data(config, 'test', config['eval_stride'])
 
     if config['normalize']:
         data_test.input_, removed_features, removed_values = preprocess(data_test.input_)
