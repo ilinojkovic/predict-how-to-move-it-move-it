@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import numpy as np
 import os
+from config import train_config as config
 
 
 class Dataset(object):
@@ -212,7 +213,7 @@ class MotionDataset(Dataset, Feeder):
     """
 
     @classmethod
-    def load(cls, data_path, split, seq_length, batch_size, rng=np.random, stride=False):
+    def load(cls, data_path, split, seq_length, batch_size, rng=np.random):
         """
         Load the data from the hard disk.
         :param data_path: Where the *.npz files are stored.
@@ -220,18 +221,11 @@ class MotionDataset(Dataset, Feeder):
         :param seq_length: Desired sequence length. If -1, the input sequences will not be splitted.
         :param batch_size: Desired batch size.
         :param rng: Random number generator.
-        :param stride: Boolean specifying whether the split method should use stride.
         :return: An instance of this class
         """
         assert split in ['train', 'valid', 'test']
 
-        def _strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
-            nrows = ((a.shape[0] - L) // S) + 1
-            n1 = a.strides[0]
-            n2 = a.strides[1]
-            return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n1, n2))
-
-        def _split(data, stride=False):
+        def _split(data):
             """
             Split data into chunks of size <= seq_length
             :param data: np array of shape (tot_length, dof)
@@ -242,7 +236,7 @@ class MotionDataset(Dataset, Feeder):
             if seq_length == 0:
                 raise ValueError('sequence length cannot be 0')
 
-            if stride:
+            if config['stride']:
                 L = 75
                 S = 1
                 strided_data = []
@@ -266,7 +260,7 @@ class MotionDataset(Dataset, Feeder):
 
         for d in data:
             angles = d['angles']
-            angles_s = _split(angles, stride=stride)
+            angles_s = _split(angles)
             all_angles.extend(angles_s)
 
             all_ids.extend([d['id']] * len(angles_s))

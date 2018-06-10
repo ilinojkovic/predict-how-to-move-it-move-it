@@ -9,13 +9,12 @@ from load_data import MotionDataset
 from utils import export_config, calculate_stats, save_stats, preprocess
 
 
-def load_data(config, split, stride=False):
+def load_data(config, split):
     print('Loading data from {} ...'.format(config['data_dir']))
     return MotionDataset.load(data_path=config['data_dir'],
                               split=split,
                               seq_length=config['max_seq_length'],
-                              batch_size=config['batch_size'],
-                              stride=stride)
+                              batch_size=config['batch_size'])
 
 
 def get_model_and_placeholders(config):
@@ -48,18 +47,21 @@ def main(config):
     print('Writing checkpoints into {}'.format(config['model_dir']))
 
     # load the data, this requires that the *.npz files you downloaded from Kaggle be named `train.npz` and `valid.npz`
-    data_train = load_data(config, 'train', stride=True)
+    data_train = load_data(config, 'train')
     data_valid = load_data(config, 'valid')
 
     # TODO if you would like to do any preprocessing of the data, here would be a good opportunity
     stats = calculate_stats(data_train.input_)
     save_stats(stats)
 
-    # data_train.input_, _, _ = preprocess(data_train.input_)
-    # data_train.target, _, _ = preprocess(data_train.target)
-    #
-    # data_valid.input_, _, _ = preprocess(data_valid.input_)
-    # data_valid.target, _, _ = preprocess(data_valid.target)
+    if config['normalize']:
+        data_train.input_, _, _ = preprocess(data_train.input_)
+        data_train.target, _, _ = preprocess(data_train.target)
+
+        data_valid.input_, _, _ = preprocess(data_valid.input_)
+        data_valid.target, _, _ = preprocess(data_valid.target)
+
+        print('Post normalize samples shape: ', data_train.input_[0].shape)
 
     config['input_dim'] = data_train.input_[0].shape[-1]
     config['output_dim'] = data_train.target[0].shape[-1]

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib.rnn.python.ops.core_rnn_cell import RNNCell
-
+from config import train_config as config
 
 class ResidualWrapper(RNNCell):
     """Operator adding residual connections to a given cell."""
@@ -182,21 +182,27 @@ class RNNModel(object):
         with tf.variable_scope('Seq2seq', reuse=self.reuse):
             # Martinez seq2seq
             cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
-            cell = tf.contrib.rnn.MultiRNNCell(cells)
+            basic_cell = tf.contrib.rnn.MultiRNNCell(cells)
 
             # Add space decoder
-            cell = LinearSpaceDecoderWrapper(cell, self.input_dim)
+            tied_cell = LinearSpaceDecoderWrapper(basic_cell, self.input_dim)
 
             # Finally, wrap everything in a residual layer if we want to model velocities
-            cell = ResidualWrapper(cell)
+            tied_cell = ResidualWrapper(tied_cell)
 
             def lf(prev, i):  # function for sampling_based loss
                 return tf.concat([prev, self.action_one_hot], axis=1)
 
-            self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
-                                                                                        self.decoder_input_,
-                                                                                        cell,
-                                                                                        loop_function=lf)
+            if config['share_weights']:
+                self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
+                                                                                            self.decoder_input_,
+                                                                                            tied_cell,
+                                                                                            loop_function=lf)
+            else:
+                self.outputs, self.final_state = tf.contrib.legacy_seq2seq.basic_rnn_seq2seq(self.encoder_input_,
+                                                                                             self.decoder_input_,
+                                                                                             tied_cell)
+
             stacked_outputs = tf.stack(self.outputs)
             self.prediction = tf.transpose(stacked_outputs, [1, 0, 2])
 
@@ -239,8 +245,8 @@ class RNNModel(object):
         :return: A feed dict that can be passed to a session.run call
         """
         input_padded, target_padded = batch.get_padded_data()
-        print('Input padded shape: ', input_padded.shape)
-        print('Target padded shape: ', target_padded.shape)
+        # print('Input padded shape: ', input_padded.shape)
+        # print('Target padded shape: ', target_padded.shape)
         encoder_input = input_padded[:, :self.encoder_seq_len - 1, :]
         decoder_input = input_padded[:, self.encoder_seq_len - 1: self.encoder_seq_len + self.decoder_seq_len - 1, :]
         decoder_target = target_padded[:, self.encoder_seq_len:, :]
