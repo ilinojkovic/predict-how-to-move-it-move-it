@@ -41,8 +41,6 @@ def main(config):
         ids = []
         for batch in data_test.all_batches():
 
-            # initialize the RNN with the known sequence (here 2 seconds)
-            # no need to pad the batch because in the test set all batches have the same length
             input_ = np.array(batch.input_)
 
             if config['normalize']:
@@ -51,9 +49,8 @@ def main(config):
             else:
                 seeds.append(input_)
 
-            # here we are requesting the final state as we later want to supply this back into the RNN
-            # this is why the model should have a member `self.final_state`
             fetch = rnn_model.prediction
+            print('Input shape: ', input_.shape)
             encoder_input = input_[:, :config['encoder_seq_len'] - 1, :]
             decoder_input = np.zeros(shape=(input_.shape[0], config['decoder_seq_len'], input_.shape[2]))
             last_decoder_index = min(input_.shape[1], config['encoder_seq_len'] + config['decoder_seq_len'] - 1)
@@ -72,29 +69,6 @@ def main(config):
             if config['normalize']:
                 predicted_poses = postprocess(predicted_poses, removed_features, removed_values)
 
-            # # now get the prediction by predicting one pose at a time and feeding this pose back into the model to
-            # # get the prediction for the subsequent time step
-            # next_pose = input_[:, -1:]
-            # predicted_poses = []
-            # for f in range(config['prediction_length']):
-            #     # TODO evaluate your model here frame-by-frame
-            #     # To do so you should
-            #     #   1) feed the previous final state of the model as the next initial state
-            #     #   2) feed the previous output pose of the model as the new input (single frame only)
-            #     #   3) fetch both the final state and prediction of the RNN model that are then re-used in the next
-            #     #      iteration
-            #
-            #     fetch = [rnn_model.final_state, rnn_model.prediction]
-            #     feed_dict = {rnn_model.input_: next_pose,
-            #                  placeholders['seq_lengths_pl']: [1]*batch.seq_lengths.shape[0],
-            #                  rnn_model.initial_state: state}
-            #
-            #     [state, predicted_pose] = sess.run(fetch, feed_dict)
-            #
-            #     predicted_poses.append(np.copy(predicted_pose))
-            #     next_pose = predicted_pose
-            #
-            # predicted_poses = np.concatenate(predicted_poses, axis=1)
             print('Predicted poses shape: ', predicted_poses.shape)
             predictions.append(predicted_poses)
             ids.extend(batch.ids)

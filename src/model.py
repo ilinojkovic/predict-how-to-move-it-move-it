@@ -206,9 +206,20 @@ class RNNModel(object):
                                                                                             cell,
                                                                                             loop_function=lf)
             else:
-                _, enc_state = tf.contrib.rnn.static_rnn(cell, self.encoder_input_, dtype=tf.float32)  # Encoder
-                self.outputs, self.states = tf.contrib.legacy_seq2seq.rnn_decoder(self.decoder_input_, enc_state, cell,
-                                                                             loop_function=lf)  # Decoder
+                enc_outputs, enc_state = tf.contrib.rnn.static_rnn(cell, self.encoder_input_, dtype=tf.float32)
+
+                print('Static rnn outputs[0] type', type(enc_outputs[0]))
+
+                if config['attention']:
+                    self.outputs, self.final_state = tf.contrib.legacy_seq2seq.attention_decoder(
+                        decoder_inputs=self.decoder_input_, initial_state=enc_state,
+                        attention_states=enc_outputs, cell=cell, loop_function=lf
+                    )
+                else:
+                    self.outputs, self.final_state = tf.contrib.legacy_seq2seq.rnn_decoder(
+                        decoder_inputs=self.decoder_input_, initial_state=enc_state,
+                        cell=cell, loop_function=lf
+                    )
 
             stacked_outputs = tf.stack(self.outputs)
             self.prediction = tf.transpose(stacked_outputs, [1, 0, 2])
