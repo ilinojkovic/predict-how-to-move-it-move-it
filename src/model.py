@@ -194,7 +194,6 @@ class RNNModel(object):
                 cell = ResidualWrapper(cell)
 
             def lf(prev, i):  # function for sampling_based loss
-
                 if config['concat_labels']:
                     return tf.concat([prev, self.action_one_hot], axis=1)
                 else:
@@ -208,7 +207,10 @@ class RNNModel(object):
             else:
                 enc_outputs, enc_state = tf.contrib.rnn.static_rnn(cell, self.encoder_input_, dtype=tf.float32)
 
-                print('Static rnn outputs[0] type', type(enc_outputs[0]))
+                # print('Static rnn outputs[0] type', type(enc_outputs[0]))
+
+                enc_outputs = tf.transpose(tf.stack(enc_outputs), [1, 0, 2])
+                print(tf.shape(enc_outputs))
 
                 if config['attention']:
                     self.outputs, self.final_state = tf.contrib.legacy_seq2seq.attention_decoder(

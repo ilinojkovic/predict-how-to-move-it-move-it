@@ -21,7 +21,7 @@ train_config['attention'] = True  # TODO specify whether attention should be use
 train_config['normalize'] = False  # TODO specify whether data should be min-max normalized before training
 train_config['train_stride'] = False  # TODO specify whether striding or splitting should be used during data loading
 train_config['eval_stride'] = False  # TODO specify whether striding should be used for validation and test
-train_config['model_velocities'] = False  # TODO specify whether velocities should be modeled
+train_config['model_velocities'] = True  # TODO specify whether velocities should be modeled
 train_config['concat_labels'] = False  # TODO specify whether class labels should be concatenated to the angles
 train_config['num_actions'] = 15  # TODO specify the amount of different labels
 
