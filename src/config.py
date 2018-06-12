@@ -18,11 +18,12 @@ train_config['encoder_seq_len'] = 50
 train_config['decoder_seq_len'] = 25
 train_config['share_weights'] = False  # TODO specify whether the encoder and the decoder should share weights or not
 train_config['attention'] = True  # TODO specify whether attention should be used or not
+train_config['dropout'] = 0.5
 train_config['normalize'] = False  # TODO specify whether data should be min-max normalized before training
 train_config['train_stride'] = False  # TODO specify whether striding or splitting should be used during data loading
 train_config['eval_stride'] = False  # TODO specify whether striding should be used for validation and test
 train_config['model_velocities'] = True  # TODO specify whether velocities should be modeled
-train_config['concat_labels'] = False  # TODO specify whether class labels should be concatenated to the angles
+train_config['concat_labels'] = True  # TODO specify whether class labels should be concatenated to the angles
 train_config['num_actions'] = 15  # TODO specify the amount of different labels
 
 #####
@@ -41,6 +42,6 @@ train_config['learning_rate_decay_rate'] = 0.95
 # some additional configuration parameters required when the configured model is used at inference time
 test_config = train_config.copy()
 test_config['max_seq_length'] = -1  # want to use entire sequence during test, which is fixed to 50, don't change this
-test_config['model_dir'] = '../trained_models/a_name_1528624005/'  # TODO path to the model that you want to evaluate
+test_config['model_dir'] = '../trained_models/a_name_1528761553/'  # TODO path to the model that you want to evaluate
 test_config['checkpoint_id'] = None  # if None, the last checkpoint will be used
 test_config['prediction_length'] = 25  # how many frames to predict into the future (assignment requires 25 frames, but you can experiment with more if you'd like)
