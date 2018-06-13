@@ -122,6 +122,12 @@ class RNNModel(object):
         self.decoder_input_raw = placeholders['dec_in_pl']
         self.decoder_target_raw = placeholders['dec_out_pl']
         self.action_labels = placeholders['action_labels_pl']
+
+        if config['dropout'] and mode == 'training':
+            self.keep_prob = 0.5
+        else:
+            self.keep_prob = 1.0
+
         self.mask = placeholders['mask_pl']
         self.mode = mode
         self.is_training = self.mode == 'training'
@@ -183,15 +189,18 @@ class RNNModel(object):
 
         with tf.variable_scope('Seq2seq', reuse=self.reuse):
             # Martinez seq2seq
-            cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
-            cell = tf.contrib.rnn.MultiRNNCell(cells)
+            encoder_cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
+            encoder_cell = tf.contrib.rnn.MultiRNNCell(encoder_cells)
+            encoder_cell = LinearSpaceDecoderWrapper(encoder_cell, self.input_dim)
 
-            # Add space decoder
-            cell = LinearSpaceDecoderWrapper(cell, self.input_dim)
+            decoder_cells = [tf.contrib.rnn.GRUCell(self.hidden_state_size) for _ in range(self.num_layers)]
+            decoder_cell = tf.contrib.rnn.MultiRNNCell(decoder_cells)
+            decoder_cell = LinearSpaceDecoderWrapper(decoder_cell, self.input_dim)
 
             if config['model_velocities']:
                 # Finally, wrap everything in a residual layer if we want to model velocities
-                cell = ResidualWrapper(cell)
+                encoder_cell = ResidualWrapper(encoder_cell)
+                decoder_cell = ResidualWrapper(decoder_cell)
 
             def lf(prev, i):  # function for sampling_based loss
                 if config['concat_labels']:
@@ -199,28 +208,37 @@ class RNNModel(object):
                 else:
                     return prev
 
-            if config['share_weights']:
-                self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
-                                                                                            self.decoder_input_,
-                                                                                            cell,
-                                                                                            loop_function=lf)
-            else:
-                enc_outputs, enc_state = tf.contrib.rnn.static_rnn(cell, self.encoder_input_, dtype=tf.float32)
+            if config['attention']:
 
+                enc_outputs, enc_state = tf.contrib.rnn.static_rnn(encoder_cell, self.encoder_input_, dtype=tf.float32)
                 enc_outputs = tf.transpose(tf.stack(enc_outputs), [1, 0, 2])
-                print(tf.shape(enc_outputs))
 
-                if config['attention']:
-                    enc_outputs = tf.layers.dropout(enc_outputs, rate=config['dropout'])
+                enc_outputs = tf.nn.dropout(enc_outputs, keep_prob=self.keep_prob)
 
+                if config['share_weights']:
                     self.outputs, self.final_state = tf.contrib.legacy_seq2seq.attention_decoder(
                         decoder_inputs=self.decoder_input_, initial_state=enc_state,
-                        attention_states=enc_outputs, cell=cell, loop_function=lf
+                        attention_states=enc_outputs, cell=encoder_cell, loop_function=lf
                     )
                 else:
+                    self.outputs, self.final_state = tf.contrib.legacy_seq2seq.attention_decoder(
+                        decoder_inputs=self.decoder_input_, initial_state=enc_state,
+                        attention_states=enc_outputs, cell=decoder_cell, loop_function=lf
+                    )
+            else:
+
+                if config['share_weights']:
+                    self.outputs, self.final_state = tf.contrib.legacy_seq2seq.tied_rnn_seq2seq(self.encoder_input_,
+                                                                                                self.decoder_input_,
+                                                                                                encoder_cell,
+                                                                                                loop_function=lf)
+                else:
+
+                    _, enc_state = tf.contrib.rnn.static_rnn(encoder_cell, self.encoder_input_, dtype=tf.float32)
+
                     self.outputs, self.final_state = tf.contrib.legacy_seq2seq.rnn_decoder(
                         decoder_inputs=self.decoder_input_, initial_state=enc_state,
-                        cell=cell, loop_function=lf
+                        cell=decoder_cell, loop_function=lf
                     )
 
             stacked_outputs = tf.stack(self.outputs)

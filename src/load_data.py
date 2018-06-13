@@ -241,7 +241,7 @@ class MotionDataset(Dataset, Feeder):
                 L = 75
                 S = 1
                 strided_data = []
-                for i in range(data.shape[0]-L):
+                for i in range(0, data.shape[0]-L, config['stride_value']):
                     strided_data.append(data[i:i + L])
 
                 return strided_data
