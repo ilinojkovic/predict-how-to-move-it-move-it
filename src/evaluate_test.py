@@ -16,12 +16,12 @@ def main(config):
         data_test.input_, removed_features, removed_values = preprocess(data_test.input_)
 
     config['input_dim'] = config['output_dim'] = data_test.input_[0].shape[-1]
-    rnn_model, placeholders = get_model_and_placeholders(config)
+    seq2seq_model, placeholders = get_model_and_placeholders(config)
 
     # restore the model by first creating the computational graph
     with tf.name_scope('inference'):
-        rnn_model = rnn_model(config, placeholders, mode='inference')
-        rnn_model.build_graph()
+        seq2seq_model = seq2seq_model(config, placeholders, mode='inference')
+        seq2seq_model.build_graph()
 
     with tf.Session() as sess:
         # now restore the trained variables
@@ -49,7 +49,7 @@ def main(config):
             else:
                 seeds.append(input_)
 
-            fetch = rnn_model.prediction
+            fetch = seq2seq_model.prediction
             print('Input shape: ', input_.shape)
             encoder_input = input_[:, :config['encoder_seq_len'] - 1, :]
             decoder_input = np.zeros(shape=(input_.shape[0], config['decoder_seq_len'], input_.shape[2]))

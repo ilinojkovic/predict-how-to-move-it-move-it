@@ -2,9 +2,11 @@ import datetime
 import os
 import tensorflow as tf
 import time
+import sys
+
 from config import train_config
 
-from model import RNNModel
+from model import Seq2SeqModel
 from load_data import MotionDataset
 from utils import export_config, calculate_stats, save_stats, preprocess
 
@@ -36,14 +38,27 @@ def get_model_and_placeholders(config):
                     'action_labels_pl': action_labels_pl,
                     'mask_pl': mask_pl}
 
-    rnn_model_class = RNNModel
-    return rnn_model_class, placeholders
+    seq2seq_model_class = Seq2SeqModel
+    return seq2seq_model_class, placeholders
 
 
 def main(config):
     # create unique output directory for this model
+
+    config['name'] = config['name'] + '-' + str(config['hidden_state_size'])
+    if config['train_stride']:
+        config['name'] = config['name'] + '-stride'
+    if config['concat_labels']:
+        config['name'] = config['name'] + '-concat_labels'
+    if config['attention']:
+        config['name'] = config['name'] + '-attention'
+    if config['share_weights']:
+        config['name'] = config['name'] + '-share_weights'
+
+    config['name'] = config['name'] + '-' + config['learning_rate_type'] + '-' + str(config['learning_rate'])
+
     timestamp = str(int(time.time()))
-    config['model_dir'] = os.path.abspath(os.path.join(config['output_dir'], config['name'] + '_' + timestamp))
+    config['model_dir'] = os.path.abspath(os.path.join(config['output_dir'], config['name'] + '-' + timestamp))
     os.makedirs(config['model_dir'])
     print('Writing checkpoints into {}'.format(config['model_dir']))
 
@@ -68,7 +83,7 @@ def main(config):
     config['output_dim'] = data_train.target[0].shape[-1]
 
     # get input placeholders and get the model that we want to train
-    rnn_model_class, placeholders = get_model_and_placeholders(config)
+    seq2seq_model_class, placeholders = get_model_and_placeholders(config)
 
     # Create a variable that stores how many training iterations we performed.
     # This is useful for saving/storing the network
@@ -76,9 +91,9 @@ def main(config):
 
     # create a training graph, this is the graph we will use to optimize the parameters
     with tf.name_scope('Training'):
-        rnn_model = rnn_model_class(config, placeholders, mode='training')
-        rnn_model.build_graph()
-        print('created RNN model with {} parameters'.format(rnn_model.n_parameters))
+        seq2seq_model = seq2seq_model_class(config, placeholders, mode='training')
+        seq2seq_model.build_graph()
+        print('created RNN model with {} parameters'.format(seq2seq_model.n_parameters))
 
         # configure learning rate
         if config['learning_rate_type'] == 'exponential':
@@ -101,7 +116,7 @@ def main(config):
             # TODO choose the optimizer you desire here and define `train_op. The loss should be accessible through rnn_model.loss
             params = tf.trainable_variables()
             optimizer = tf.train.AdamOptimizer(config['learning_rate'])
-            gradients = tf.gradients(rnn_model.loss, params)
+            gradients = tf.gradients(seq2seq_model.loss, params)
 
             # clip the gradients to counter explosion
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, config['gradient_clip'])
@@ -111,8 +126,8 @@ def main(config):
 
     # create a graph for validation
     with tf.name_scope('Validation'):
-        rnn_model_valid = rnn_model_class(config, placeholders, mode='validation')
-        rnn_model_valid.build_graph()
+        seq2seq_model_valid = seq2seq_model_class(config, placeholders, mode='validation')
+        seq2seq_model_valid.build_graph()
 
     # Create summary ops for monitoring the training
     # Each summary op annotates a node in the computational graph and collects data data from it
@@ -168,11 +183,11 @@ def main(config):
 
                 # we want to train, so must request at least the train_op
                 fetches = {'summaries': summaries_training,
-                           'loss': rnn_model.loss,
+                           'loss': seq2seq_model.loss,
                            'train_op': train_op}
 
                 # get the feed dict for the current batch
-                feed_dict = rnn_model.get_feed_dict(batch)
+                feed_dict = seq2seq_model.get_feed_dict(batch)
 
                 # feed data into the model and run optimization
                 training_out = sess.run(fetches, feed_dict)
@@ -189,8 +204,8 @@ def main(config):
             total_valid_loss = 0.0
             n_valid_samples = 0
             for batch in data_valid.all_batches():
-                fetches = {'loss': rnn_model_valid.loss}
-                feed_dict = rnn_model_valid.get_feed_dict(batch)
+                fetches = {'loss': seq2seq_model_valid.loss}
+                feed_dict = seq2seq_model_valid.get_feed_dict(batch)
                 valid_out = sess.run(fetches, feed_dict)
 
                 total_valid_loss += valid_out['loss'] * batch.batch_size
@@ -208,6 +223,9 @@ def main(config):
             if (e + 1) % config['save_checkpoints_every_epoch'] == 0:
                 saver.save(sess, os.path.join(config['model_dir'], 'model'), global_step)
 
+            if avg_valid_loss > 20:
+                break
+
         # Training finished, always save model before exiting
         print('Training finished')
         ckpt_path = saver.save(sess, os.path.join(config['model_dir'], 'model'), global_step)
@@ -215,4 +233,21 @@ def main(config):
 
 
 if __name__ == '__main__':
+
+    print('Running model: ', sys.argv)
+
+    train_config['train_stride'] = bool(int(sys.argv[1]))
+    train_config['concat_labels'] = bool(int(sys.argv[2]))
+    train_config['hidden_state_size'] = int(sys.argv[3])
+    train_config['attention'] = bool(int(sys.argv[4]))
+    train_config['share_weights'] = bool(int(sys.argv[5]))
+    train_config['learning_rate_type'] = sys.argv[6]
+
+    assert train_config['learning_rate_type'] in ['exponential', 'fixed']
+
+    if train_config['learning_rate_type'] == 'exponential':
+        train_config['learning_rate'] = 0.005
+    else:
+        train_config['learning_rate'] = 0.0001
+
     main(train_config)
