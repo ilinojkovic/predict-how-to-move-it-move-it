@@ -3,6 +3,8 @@ import os
 import tensorflow as tf
 import time
 import sys
+import math
+import numpy as np
 
 from config import train_config
 
@@ -223,7 +225,7 @@ def main(config):
             if (e + 1) % config['save_checkpoints_every_epoch'] == 0:
                 saver.save(sess, os.path.join(config['model_dir'], 'model'), global_step)
 
-            if avg_valid_loss > 20:
+            if avg_valid_loss > 10 or math.isnan(avg_valid_loss) or np.isinf(avg_valid_loss):
                 break
 
         # Training finished, always save model before exiting

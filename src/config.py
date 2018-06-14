@@ -37,8 +37,8 @@ train_config['save_checkpoints_every_epoch'] = 5  # TODO after how many epochs t
 train_config['n_keep_checkpoints'] = 30  # TODO how many saved checkpoints to keep
 train_config['gradient_clip'] = 5  # TODO gradient clipping scalar
 train_config['learning_rate_type'] = 'fixed'  # TODO choose between ['fixed', 'exponential', 'linear']
-train_config['learning_rate_decay_steps'] = 500
-train_config['learning_rate_decay_rate'] = 0.9
+train_config['learning_rate_decay_steps'] = 1000
+train_config['learning_rate_decay_rate'] = 0.95
 
 # some additional configuration parameters required when the configured model is used at inference time
 test_config = train_config.copy()
