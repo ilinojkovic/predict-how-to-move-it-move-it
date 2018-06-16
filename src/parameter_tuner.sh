@@ -7,8 +7,6 @@ ATTENTION=(0 1)
 SHARE_WEIGHTS=(1 0)
 LEARNING_RATE=('exponential' 'fixed')
 
-echo ${LEARNING_RATE[0]}
-
 for TS in ${TRAIN_STRIDE[@]}
 do
     for CL in ${CONCAT_LABELS[@]}

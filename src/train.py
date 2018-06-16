@@ -236,20 +236,21 @@ def main(config):
 
 if __name__ == '__main__':
 
-    print('Running model: ', sys.argv)
-
-    train_config['train_stride'] = bool(int(sys.argv[1]))
-    train_config['concat_labels'] = bool(int(sys.argv[2]))
-    train_config['hidden_state_size'] = int(sys.argv[3])
-    train_config['attention'] = bool(int(sys.argv[4]))
-    train_config['share_weights'] = bool(int(sys.argv[5]))
-    train_config['learning_rate_type'] = sys.argv[6]
-
-    assert train_config['learning_rate_type'] in ['exponential', 'fixed']
-
-    if train_config['learning_rate_type'] == 'exponential':
-        train_config['learning_rate'] = 0.005
-    else:
-        train_config['learning_rate'] = 0.0001
+    # TODO uncomment this if you want to test it using command line arguments. See parameter_tuner.sh.
+    # print('Running model: ', sys.argv)
+    #
+    # train_config['train_stride'] = bool(int(sys.argv[1]))
+    # train_config['concat_labels'] = bool(int(sys.argv[2]))
+    # train_config['hidden_state_size'] = int(sys.argv[3])
+    # train_config['attention'] = bool(int(sys.argv[4]))
+    # train_config['share_weights'] = bool(int(sys.argv[5]))
+    # train_config['learning_rate_type'] = sys.argv[6]
+    #
+    # assert train_config['learning_rate_type'] in ['exponential', 'fixed']
+    #
+    # if train_config['learning_rate_type'] == 'exponential':
+    #     train_config['learning_rate'] = 0.005
+    # else:
+    #     train_config['learning_rate'] = 0.0001
 
     main(train_config)
