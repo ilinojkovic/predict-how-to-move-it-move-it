@@ -17,14 +17,14 @@ train_config['max_seq_length'] = 75  # TODO specify for how many time steps you 
 train_config['encoder_seq_len'] = 50
 train_config['decoder_seq_len'] = 25
 train_config['share_weights'] = True  # TODO specify whether the encoder and the decoder should share weights or not
-train_config['attention'] = True  # TODO specify whether attention should be used or not
-train_config['dropout'] = True  # TODO Specify whether dropout of 0.5 should be used or not
+train_config['attention'] = False  # TODO specify whether attention should be used or not
+train_config['dropout'] = False  # TODO Specify whether dropout of 0.5 should be used or not
 train_config['normalize'] = False  # TODO specify whether data should be min-max normalized before training
 train_config['train_stride'] = False  # TODO specify whether striding or splitting should be used during data loading
 train_config['eval_stride'] = False  # TODO specify whether striding should be used for validation and test
 train_config['stride_value'] = 25  # TODO specify shifting size for striding
 train_config['model_velocities'] = True  # TODO specify whether velocities should be modeled
-train_config['concat_labels'] = True  # TODO specify whether class labels should be concatenated to the angles
+train_config['concat_labels'] = False  # TODO specify whether class labels should be concatenated to the angles
 train_config['num_actions'] = 15  # TODO specify the amount of different labels
 
 #####
