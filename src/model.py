@@ -219,6 +219,8 @@ class Seq2SeqModel(object):
                     enc_outputs, enc_state = tf.contrib.rnn.static_rnn(encoder_cell, self.encoder_input_,
                                                                        dtype=tf.float32)
                     enc_outputs = tf.transpose(tf.stack(enc_outputs), [1, 0, 2])
+
+                with tf.name_scope('Dropout'):
                     enc_outputs = tf.layers.dropout(enc_outputs, rate=self.rate, name='dropout')
 
                 with tf.name_scope('AttentionDecoder'):

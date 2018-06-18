@@ -114,7 +114,7 @@ def main(config):
         else:
             raise ValueError('learning rate type "{}" unknown.'.format(config['learning_rate_type']))
 
-        with tf.name_scope('Step'):
+        with tf.name_scope('Optimizer'):
             # TODO choose the optimizer you desire here and define `train_op. The loss should be accessible through rnn_model.loss
             params = tf.trainable_variables()
             optimizer = tf.train.AdamOptimizer(config['learning_rate'])
